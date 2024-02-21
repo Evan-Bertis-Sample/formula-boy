@@ -32,7 +32,11 @@
 #include <Arduino.h>
 #include <CAN.h>
 
+#include "player_input.hpp"
+#include "connection_handler.hpp"
+
 void readInput();
+void handleConnectionRequest();
 
 // Pin Definitions
 #define PLAYER_1_STATUS_PIN GPIO_NUM_32
@@ -50,39 +54,27 @@ CAN g_canBus{};
 // Structure for handling timers
 VirtualTimerGroup g_readTimer;
 
-// CAN addresses
-const uint32_t g_controllerConnectionAddress = 0x000;
-const uint32_t g_controllerConnectionResponseAddress = 0x100;
-const uint32_t g_controllerInputAddress = 0x200;
-
-// CAN signals
-MakeSignedCANSignal(int8_t, 0, 8, 1, 0) g_playerIdSignal{};           // one byte
-MakeSignedCANSignal(float, 8, 16, 0.01, 0) g_verticalAxisSignal{};    // two bytes
-MakeSignedCANSignal(float, 24, 16, 0.01, 0) g_horizontalAxisSignal{}; // two bytes
-MakeSignedCANSignal(float, 40, 16, 0.01, 0) g_rotationAxisSignal{};   // two bytes
-MakeUnsignedCANSignal(uint8_t, 56, 8, 1, 0) g_buttonBitmaskSignal{}; // one byte
-
-// CAN message
-CANRXMessage<5> g_controllerInputMessage{g_canBus,
-                                         g_controllerInputAddress,
-                                         readInput,
-                                         g_playerIdSignal,
-                                         g_verticalAxisSignal,
-                                         g_horizontalAxisSignal,
-                                         g_rotationAxisSignal,
-                                         g_buttonBitmaskSignal};
-
+// Connection handler
+ConnectionHandler g_connectionHandler{g_canBus, g_readTimer};
+InputHandler g_inputHandler{g_canBus, g_readTimer};
 
 void updateState()
 {
-  // write to the active player's pin
-  digitalWrite(g_playerPins[g_activePlayer], LOW);
-  g_activePlayer = (g_activePlayer + 1) % g_numPlayers;
-  digitalWrite(g_playerPins[g_activePlayer], HIGH);
-  Serial.println("Player " + String(g_activePlayer + 1) + " is active");
-  // move to the next player
-}
+  // update the leds based on the active player
+  std::vector<int> connectedPlayers = g_inputHandler.getConnectedPlayers();
 
+  for (int i = 0; i < g_numPlayers; i++)
+  {
+    if (std::find(connectedPlayers.begin(), connectedPlayers.end(), i) != connectedPlayers.end())
+    {
+      digitalWrite(g_playerPins[i], HIGH);
+    }
+    else
+    {
+      digitalWrite(g_playerPins[i], LOW);
+    }
+  }
+}
 
 void setup()
 {
@@ -96,21 +88,16 @@ void setup()
   Serial.begin(9600);
   Serial.println("Starting game");
 
+  // initialize the connection and input handlers
+  g_connectionHandler.initialize();
+  g_inputHandler.initialize();
+
   // initialize the CAN bus
   g_canBus.Initialize(ICAN::BaudRate::kBaud1M);
-
   g_readTimer.AddTimer(1000, updateState);
 }
 
 void loop()
 {
   g_readTimer.Tick(millis());
-}
-
-void readInput()
-{
-  Serial.println("Reading input");
-  // get the player id
-  int8_t playerId = g_playerIdSignal;
-  Serial.println("Player id: " + String(playerId));
 }
