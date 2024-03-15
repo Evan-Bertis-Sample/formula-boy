@@ -154,7 +154,6 @@ public:
         return connectedPlayers;
     }
 
-
     void sendInput()
     {
         for (auto &player : _playerInputs)
@@ -193,7 +192,6 @@ private:
                                             _rotationAxisSignal,
                                             _buttonBitmaskSignal};
 
-    
     std::uint8_t getNextPlayerId()
     {
         for (std::uint8_t i = 0; i < _MAX_PLAYERS; i++)

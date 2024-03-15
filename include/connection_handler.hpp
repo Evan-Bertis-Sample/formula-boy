@@ -56,20 +56,20 @@ public:
         PlayerConnectionResponse() = default;
     };
 
-    ConnectionHandler(CAN &canBus, VirtualTimerGroup &timerGroup) : _canBus(canBus), _timerGroup(timerGroup) {}
+    ConnectionHandler(CAN &canBus, VirtualTimerGroup &timerGroup, std::shared_ptr<InputHandler> inputHandler) : _canBus(canBus), _timerGroup(timerGroup), _inputHandler(inputHandler) {}
 
     void initialize()
     {
         this->_canBus.RegisterRXMessage(this->_connectionRequestMessage);
+        Serial.println("Connection Handler Initialized");
     }
 
     void requestCallback()
     {
+        Serial.println("Connection Request Received");
+        digitalWrite(GPIO_NUM_33, HIGH);
     }
 
-    PlayerConnectionResponse handleConnectionRequest()
-    {
-    }
 
 private:
     const uint32_t _CONTROLLER_CONNECTION_ADDRESS = 0x000;
@@ -77,8 +77,9 @@ private:
 
     CAN _canBus;
     VirtualTimerGroup _timerGroup;
+    std::shared_ptr<InputHandler> _inputHandler;
 
-    CANRXMessage<1> _connectionRequestMessage{_canBus, _CONTROLLER_CONNECTION_ADDRESS, _connectionRequestPlayerIdSignal};
+    CANRXMessage<1> _connectionRequestMessage{_canBus, _CONTROLLER_CONNECTION_ADDRESS, [this](){this->requestCallback();}, _connectionRequestPlayerIdSignal};
     CANMessage _connectionResponseMessage{
         _CONTROLLER_CONNECTION_RESPONSE_ADDRESS, 8, std::array<uint8_t, 8>{}};
 

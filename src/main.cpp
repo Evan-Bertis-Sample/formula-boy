@@ -50,18 +50,16 @@ int g_activePlayer = 0;
 // CAN setup
 // TX pin and RX pin as input.
 CAN g_canBus{};
-
 // Structure for handling timers
 VirtualTimerGroup g_readTimer;
-
 // Connection handler
-ConnectionHandler g_connectionHandler{g_canBus, g_readTimer};
-InputHandler g_inputHandler{g_canBus, g_readTimer};
+std::shared_ptr<InputHandler> g_inputHandlerPtr = std::make_shared<InputHandler>(g_canBus, g_readTimer);
+ConnectionHandler g_connectionHandler{g_canBus, g_readTimer, g_inputHandlerPtr};
 
 void updateState()
 {
   // update the leds based on the active player
-  std::vector<int> connectedPlayers = g_inputHandler.getConnectedPlayers();
+  std::vector<int> connectedPlayers = g_inputHandlerPtr->getConnectedPlayers();
 
   for (int i = 0; i < g_numPlayers; i++)
   {
@@ -74,6 +72,22 @@ void updateState()
       digitalWrite(g_playerPins[i], LOW);
     }
   }
+}
+
+bool high = false;
+void testTask()
+{
+  // turn player 1's led on and off
+  if (high)
+  {
+    digitalWrite(PLAYER_1_STATUS_PIN, HIGH);
+  }
+  else
+  {
+    digitalWrite(PLAYER_1_STATUS_PIN, LOW);
+  }
+
+  high = !high;
 }
 
 void setup()
@@ -90,11 +104,12 @@ void setup()
 
   // initialize the connection and input handlers
   g_connectionHandler.initialize();
-  g_inputHandler.initialize();
+  g_inputHandlerPtr->initialize();
 
   // initialize the CAN bus
   g_canBus.Initialize(ICAN::BaudRate::kBaud1M);
   g_readTimer.AddTimer(1000, updateState);
+  g_readTimer.AddTimer(1000, testTask);
 }
 
 void loop()
