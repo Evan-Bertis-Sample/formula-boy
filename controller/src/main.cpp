@@ -24,7 +24,11 @@ MakeUnsignedCANSignal(uint64_t, 0, 64, 1, 0) g_connectionResponsePlayerIdSignal{
 CANRXMessage<1> g_connectionResponseMessage{
     g_canBus,
     CONTROLLER_CONNECTION_RESPONSE_ADDRESS,
-    handleConnectionResponse,
+    []()
+    {
+      Serial.println("Connection response received");
+      handleConnectionResponse();
+    },
     g_connectionRequestDeviceIdSignal,
 };
 
@@ -80,10 +84,12 @@ void handleConnectionResponse()
   Serial.println("Connection response received");
   // parse out the player id from the message
   // it is sent as a 64 bit unsigned integer, where the first byte is the device id
-  // and the remaining 7 bytes are the player id
+  // and the next byte is the player id
+  // we need to keep in mind that the byte order is reversed in the message
   uint64_t data = g_connectionResponsePlayerIdSignal;
-  int8_t playerId = (int8_t)(data & 0xFF);
-  int8_t deviceId = (int8_t)(data >> 8);
+  // grab the msb of the data
+  int8_t deviceId = (int8_t)(((data & ((uint64_t)0xFF << 8 * 7))) >> 8 * 7);
+  int8_t playerId = (int8_t)(((data & ((uint64_t)0xFF << 8 * 6))) >> 8 * 6);
   Serial.printf("Player id: %d\n", playerId);
   Serial.printf("Device id: %d\n", deviceId);
 
@@ -105,8 +111,6 @@ void updateState()
   switch (g_controllerState)
   {
   case ControllerState::DISCONNECTED:
-    g_deviceId = generateDeviceID();
-    g_connectionRequestDeviceIdSignal = g_deviceId;
     Serial.printf("Sending connection request with device id: %d\n", g_deviceId);
     g_controllerState = ControllerState::AWAITING_CONNECTION_RESPONSE;
     break;
@@ -117,6 +121,7 @@ void updateState()
     getPlayerInputs();
     break;
   }
+  g_canBus.Tick();
 }
 
 #pragma endregion
@@ -128,6 +133,10 @@ void setup()
 
   // initialize the player id signal to be -1
   g_playerIdSignal = -1;
+  // generate a random device id
+  g_deviceId = generateDeviceID();
+  g_connectionRequestDeviceIdSignal = g_deviceId;
+
 
   Serial.begin(9600);
   Serial.println("Started");
