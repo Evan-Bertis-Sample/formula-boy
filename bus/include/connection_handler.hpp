@@ -32,7 +32,20 @@ public:
         Serial.printf("Connection Request Received from Device %d\n", deviceId);
 
         // send a response with the player id
-        int8_t playerNumber = this->_inputHandler->getNextPlayerId();
+        int8_t playerNumber = -1;
+        // check if we already assigned a player to this device
+        if (this->_playerDeviceMap.find(deviceId) != this->_playerDeviceMap.end())
+        {
+            playerNumber = this->_playerDeviceMap[deviceId];
+        }
+        else
+        {
+            playerNumber = this->_inputHandler->getNextPlayerId();
+            // update the maps
+            this->_playerDeviceMap[deviceId] = playerNumber;
+            this->_devicePlayerMap[playerNumber] = deviceId;
+        }
+
         if (playerNumber == -1)
         {
             // no more players can connect
@@ -44,12 +57,32 @@ public:
             this->_inputHandler->connectPlayer(playerNumber);
         }
 
-
         // send the response
         // should be device id, player id
-        this->_connectionRequestMessageData[0] = deviceId;
-        this->_connectionRequestMessageData[1] = playerNumber;
-        this->_canBus.SendMessage(this->_connectionResponseMessage);
+        this->_connectionResponseMessageData[0] = deviceId;
+        this->_connectionResponseMessageData[1] = playerNumber;
+        this->_connectionResponseMessageData[7] = 0xF; // debugging stuff
+        this->_connectionResponseMessage.data_ = this->_connectionResponseMessageData;
+        bool sent = this->_canBus.SendMessage(this->_connectionResponseMessage);
+        if (!sent)
+        {
+            Serial.println("Failed to send connection response");
+        }
+    }
+
+    // NOTE: This is not used yet, but should be used in the player auto-disconnect logic
+    void disconnectDevice(std::int8_t playerId)
+    {
+        if (this->_devicePlayerMap.find(playerId) == this->_devicePlayerMap.end())
+        {
+            Serial.println("Tried to disconnect the device of a player that is not connected");
+            return;
+        }
+
+        int8_t deviceId = this->_devicePlayerMap[playerId];
+        this->_devicePlayerMap.erase(playerId);
+        this->_playerDeviceMap.erase(deviceId);
+        this->_inputHandler->disconnectPlayer(playerId);
     }
 
 private:
@@ -63,10 +96,13 @@ private:
     CANRXMessage<1> _connectionRequestMessage{_canBus, _CONTROLLER_CONNECTION_ADDRESS, [this](){this->requestCallback();}, _connectionRequestPlayerIdSignal};
     MakeSignedCANSignal(int8_t, 0, 8, 1, 0) _connectionRequestPlayerIdSignal{}; // one byte
 
+    std::map<int8_t, int8_t> _playerDeviceMap; // maps device id to player id
+    std::map<int8_t, int8_t> _devicePlayerMap; // maps player id to device id
+
     // CAN Signals for Connection Request/Acknowledgement
-    std::array<uint8_t, 8> _connectionRequestMessageData{0};
+    std::array<uint8_t, 8> _connectionResponseMessageData{0};
     CANMessage _connectionResponseMessage{
-        _CONTROLLER_CONNECTION_RESPONSE_ADDRESS, 2, _connectionRequestMessageData}; // two bytes -- random player id, actual player id
+        _CONTROLLER_CONNECTION_RESPONSE_ADDRESS, 8, _connectionResponseMessageData}; // two bytes -- random player id, actual player id
 
 };
 
