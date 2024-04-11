@@ -92,9 +92,11 @@ public:
         _playerInputs[playerID]->setAxis(PlayerInput::AXIS::HORIZONTAL, _horizontalAxisSignal);
         _playerInputs[playerID]->setAxis(PlayerInput::AXIS::ROTATION, _rotationAxisSignal);
         _playerInputs[playerID]->setButton(_buttonBitmaskSignal);
+
+        _timeSinceLastInput[playerID] = millis();
     }
 
-    void connectPlayer(std::uint8_t playerID)
+    void connectPlayer(std::int8_t playerID)
     {
         if (playerID >= _MAX_PLAYERS || playerID < 0)
         {
@@ -111,7 +113,7 @@ public:
         _playerInputs[playerID] = std::make_shared<PlayerInput>(playerID);
     }
 
-    void disconnectPlayer(std::uint8_t playerID)
+    void disconnectPlayer(std::int8_t playerID)
     {
         if (playerID >= _MAX_PLAYERS || playerID < 0)
         {
@@ -166,13 +168,45 @@ public:
         }
     }
 
+    std::int8_t getNextPlayerId() const
+    {
+        for (std::int8_t i = 0; i < _MAX_PLAYERS; i++)
+        {
+            if (_playerInputs[i] == nullptr)
+            {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    void tick()
+    {
+        // check for inactivity
+        for (std::int8_t i = 0; i < _MAX_PLAYERS; i++)
+        {
+            if (_playerInputs[i] != nullptr)
+            {
+                unsigned long currentTime = millis();
+                unsigned long timeSinceLastInput = currentTime - _timeSinceLastInput[i];
+                if (timeSinceLastInput > _MAX_INACTIVITY)
+                {
+                    Serial.printf("Player %d has been inactive for too long\n", i);
+                    disconnectPlayer(i);
+                }
+            }
+        }
+    }
+
 private:
     static const std::uint32_t _CONTROLLER_INPUT_ADDRESS = 0x200;
-    static const std::uint8_t _MAX_PLAYERS = 3;
+    static const std::int8_t _MAX_PLAYERS = 3;
+    static const std::uint8_t _MAX_INACTIVITY = 1000U;
 
     CAN &_canBus;
     VirtualTimerGroup &_timerGroup;
     std::array<std::shared_ptr<PlayerInput>, _MAX_PLAYERS> _playerInputs;
+    std::array<unsigned long, _MAX_PLAYERS> _timeSinceLastInput;
 
     // CAN Signals for Player Input
     MakeSignedCANSignal(int8_t, 0, 8, 1, 0) _playerIdSignal{};           // one byte
@@ -181,7 +215,7 @@ private:
     MakeSignedCANSignal(float, 40, 16, 0.01, 0) _rotationAxisSignal{};   // two bytes
     MakeUnsignedCANSignal(uint8_t, 56, 8, 1, 0) _buttonBitmaskSignal{};  // one byte
 
-    // CAN message
+    // CAN message for Player Input
     CANRXMessage<5> _controllerInputMessage{_canBus,
                                             _CONTROLLER_INPUT_ADDRESS,
                                             [this]()
@@ -192,17 +226,7 @@ private:
                                             _rotationAxisSignal,
                                             _buttonBitmaskSignal};
 
-    std::uint8_t getNextPlayerId()
-    {
-        for (std::uint8_t i = 0; i < _MAX_PLAYERS; i++)
-        {
-            if (_playerInputs[i] == nullptr)
-            {
-                return i;
-            }
-        }
-        return -1;
-    }
+    // CAN message for input denial
 };
 
 #endif // __PLAYER_INPUT_H__

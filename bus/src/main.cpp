@@ -72,6 +72,8 @@ void updateState()
       digitalWrite(g_playerPins[i], LOW);
     }
   }
+
+  g_inputHandlerPtr->tick();
 }
 
 bool high = false;
@@ -88,6 +90,11 @@ void testTask()
   }
 
   high = !high;
+}
+
+void canBusTick()
+{
+  g_canBus.Tick();
 }
 
 void setup()
@@ -108,8 +115,9 @@ void setup()
 
   // initialize the CAN bus
   g_canBus.Initialize(ICAN::BaudRate::kBaud1M);
-  g_readTimer.AddTimer(1000, updateState);
-  g_readTimer.AddTimer(1000, testTask);
+  g_readTimer.AddTimer(100, updateState);
+  g_readTimer.AddTimer(100, testTask);
+  g_readTimer.AddTimer(100, canBusTick);
 }
 
 void loop()
