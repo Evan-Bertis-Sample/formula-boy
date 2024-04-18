@@ -8,6 +8,7 @@
 #include <memory>
 #include <array>
 #include <string>
+#include <iostream>
 
 class PlayerInput
 {
@@ -75,6 +76,8 @@ public:
     {
         // read the input from the controller
         std::uint8_t playerID = _playerIdSignal;
+
+        std::cout << "Player ID: " << playerID << std::endl;
 
         if (playerID >= _MAX_PLAYERS || playerID < 0)
         {

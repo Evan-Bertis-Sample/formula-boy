@@ -20,7 +20,7 @@ CANTXMessage<1> g_connectionRequestMessage{
 
 // Player Connection Response Message
 void handleConnectionResponse(); // forward declaration
-MakeUnsignedCANSignal(uint64_t, 0, 64, 1, 0) g_connectionResponsePlayerIdSignal{}; // 8 bytes
+MakeUnsignedCANSignal(uint64_t, 0, 64, 1, 0) g_connectionResponseSignal{}; // 8 bytes
 CANRXMessage<1> g_connectionResponseMessage{
     g_canBus,
     CONTROLLER_CONNECTION_RESPONSE_ADDRESS,
@@ -29,7 +29,7 @@ CANRXMessage<1> g_connectionResponseMessage{
       Serial.println("Connection response received");
       handleConnectionResponse();
     },
-    g_connectionRequestDeviceIdSignal,
+    g_connectionResponseSignal,
 };
 
 // Player Input Message
@@ -60,11 +60,11 @@ enum class ControllerState
 
 ControllerState g_controllerState = ControllerState::DISCONNECTED;
 int8_t g_playerId = -1;
-int8_t g_deviceId = -1;
+int8_t g_deviceId = 0xFF;
 
 int8_t generateDeviceID()
 {
-  return (int8_t)random(0, 127);
+  return (int8_t)random(0, 255);
 }
 
 void getPlayerInputs()
@@ -77,19 +77,34 @@ void getPlayerInputs()
   g_horizontalAxisSignal = random(-100, 100) / 100.0f;
   g_rotationAxisSignal = random(-100, 100) / 100.0f;
   g_buttonBitmaskSignal = random(0, 255);
+
+  Serial.printf("Sneding player inputs as player %d\n", g_playerId);
 }
 
 void handleConnectionResponse()
 {
+  if (g_controllerState != ControllerState::AWAITING_CONNECTION_RESPONSE)
+  {
+    // Serial.println("Heard Response, but not connected");
+    return;
+  }
+
   Serial.println("Connection response received");
   // parse out the player id from the message
   // it is sent as a 64 bit unsigned integer, where the first byte is the device id
   // and the next byte is the player id
   // we need to keep in mind that the byte order is reversed in the message
-  uint64_t data = g_connectionResponsePlayerIdSignal;
+  uint64_t data = g_connectionResponseSignal;
+  Serial.printf("Data: %llx\n", data);
+  std::array<int8_t, 8> bytes;
+  for (int i = 0; i < 8; i++)
+  {
+    bytes[i] = (int8_t)(data >> (i * 8));
+    Serial.printf("Byte %d: %x\n", i, bytes[i]);
+  }
   // grab the msb of the data
-  int8_t deviceId = (int8_t)(((data & ((uint64_t)0xFF << 8 * 7))) >> 8 * 7);
-  int8_t playerId = (int8_t)(((data & ((uint64_t)0xFF << 8 * 6))) >> 8 * 6);
+  int8_t deviceId = bytes[0];
+  int8_t playerId = bytes[1];
   Serial.printf("Player id: %d\n", playerId);
   Serial.printf("Device id: %d\n", deviceId);
 
@@ -137,9 +152,9 @@ void setup()
   g_deviceId = generateDeviceID();
   g_connectionRequestDeviceIdSignal = g_deviceId;
 
-
   Serial.begin(9600);
   Serial.println("Started");
+  Serial.println("Setup complete");
 }
 
 void loop() { g_timerGroup.Tick(millis()); }
