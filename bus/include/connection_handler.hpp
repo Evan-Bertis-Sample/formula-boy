@@ -29,8 +29,7 @@ public:
     void requestCallback()
     {
         int8_t deviceId = this->_connectionRequestPlayerIdSignal;
-        Serial.printf("Connection Request Received from Device %d\n", deviceId);
-
+        // Serial.printf("Connection Request Received from Device %d\n", deviceId);
         // send a response with the player id
         int8_t playerNumber = -1;
         // check if we already assigned a player to this device
@@ -49,7 +48,7 @@ public:
         if (playerNumber == -1)
         {
             // no more players can connect
-            Serial.println("Connection Request Denied: No More Players Can Connect");
+            // Serial.println("Connection Request Denied: No More Players Can Connect");
         }
         else
         {

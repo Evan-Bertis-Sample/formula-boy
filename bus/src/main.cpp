@@ -37,6 +37,7 @@
 
 void readInput();
 void handleConnectionRequest();
+void onPlayerDisconnect(std::int8_t player);
 
 // Pin Definitions
 #define PLAYER_1_STATUS_PIN GPIO_NUM_32
@@ -53,8 +54,14 @@ CAN g_canBus{};
 // Structure for handling timers
 VirtualTimerGroup g_readTimer;
 // Connection handler
-std::shared_ptr<InputHandler> g_inputHandlerPtr = std::make_shared<InputHandler>(g_canBus, g_readTimer);
+std::shared_ptr<InputHandler> g_inputHandlerPtr = std::make_shared<InputHandler>(g_canBus, g_readTimer, onPlayerDisconnect);
 ConnectionHandler g_connectionHandler{g_canBus, g_readTimer, g_inputHandlerPtr};
+
+void onPlayerDisconnect(std::int8_t player)
+{
+  Serial.printf("Player %d has disconnected\n", player);
+  g_connectionHandler.disconnectDevice(player);
+}
 
 void updateState()
 {
@@ -73,7 +80,10 @@ void updateState()
     }
   }
 
+  // encode our input to serial
+
   g_inputHandlerPtr->tick();
+  Serial.print(g_inputHandlerPtr->encodeInput().c_str());
 }
 
 bool high = false;
