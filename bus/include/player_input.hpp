@@ -93,11 +93,16 @@ public:
         }
 
         float verticalAxis = _verticalAxisSignal;
-        Serial.printf("Vertical Axis: %f\n", verticalAxis);
-        _playerInputs[playerID]->setAxis(PlayerInput::AXIS::VERTICAL, (float)_verticalAxisSignal);
-        _playerInputs[playerID]->setAxis(PlayerInput::AXIS::HORIZONTAL, (float)_horizontalAxisSignal);
-        _playerInputs[playerID]->setAxis(PlayerInput::AXIS::ROTATION, (float)_rotationAxisSignal);
-        _playerInputs[playerID]->setButton(_buttonBitmaskSignal);
+        // _playerInputs[playerID]->setAxis(PlayerInput::AXIS::VERTICAL, (float)_verticalAxisSignal);
+        // _playerInputs[playerID]->setAxis(PlayerInput::AXIS::HORIZONTAL, (float)_horizontalAxisSignal);
+        // _playerInputs[playerID]->setAxis(PlayerInput::AXIS::ROTATION, (float)_rotationAxisSignal);
+        // _playerInputs[playerID]->setButton(_buttonBitmaskSignal);
+
+        // for now, just set the input to random numbers
+        _playerInputs[playerID]->setAxis(PlayerInput::AXIS::VERTICAL, (float)random(-100, 100) / 100.0f);
+        _playerInputs[playerID]->setAxis(PlayerInput::AXIS::HORIZONTAL, (float)random(-100, 100) / 100.0f);
+        _playerInputs[playerID]->setAxis(PlayerInput::AXIS::ROTATION, (float)random(-100, 100) / 100.0f);
+        _playerInputs[playerID]->setButton((int)random(0, 255));
 
         _timeSinceLastInput[playerID] = millis();
     }
@@ -135,7 +140,6 @@ public:
         }
 
         _playerInputs[playerID] = nullptr;
-        
     }
 
     std::uint8_t getNumPlayers() const
@@ -232,11 +236,11 @@ private:
     std::function<void(std::int8_t)> _onDisconnect;
 
     // CAN Signals for Player Input
-    MakeSignedCANSignal(int8_t, 0, 8, 1, 0) _playerIdSignal{};           // one byte
-    MakeSignedCANSignal(float, 8, 16, 10, 0) _verticalAxisSignal{};    // two bytes
-    MakeSignedCANSignal(float, 24, 16, 10, 0) _horizontalAxisSignal{}; // two bytes
-    MakeSignedCANSignal(float, 40, 16, 10, 0) _rotationAxisSignal{};   // two bytes
-    MakeUnsignedCANSignal(uint8_t, 56, 8, 1, 0) _buttonBitmaskSignal{};  // one byte
+    MakeSignedCANSignal(int8_t, 0, 8, 1, 0) _playerIdSignal{};          // one byte
+    MakeSignedCANSignal(float, 8, 16, 10, 0) _verticalAxisSignal{};     // two bytes
+    MakeSignedCANSignal(float, 24, 16, 10, 0) _horizontalAxisSignal{};  // two bytes
+    MakeSignedCANSignal(float, 40, 16, 10, 0) _rotationAxisSignal{};    // two bytes
+    MakeUnsignedCANSignal(uint8_t, 56, 8, 1, 0) _buttonBitmaskSignal{}; // one byte
 
     // CAN message for Player Input
     CANRXMessage<5> _controllerInputMessage{_canBus,
