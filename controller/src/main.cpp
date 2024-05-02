@@ -76,6 +76,7 @@ void getPlayerInputs()
   g_verticalAxisSignal = random(-100, 100) / 100.0f;
   g_horizontalAxisSignal = random(-100, 100) / 100.0f;
   g_rotationAxisSignal = random(-100, 100) / 100.0f;
+  // lsb is shoot, followed by special action, etc.
   g_buttonBitmaskSignal = random(0, 255);
 
   Serial.printf("Sending player inputs as player %d\n", g_playerId);
